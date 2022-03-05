@@ -45,6 +45,7 @@ def parse_args():
         "--dataset", type=str, default="ag_news", choices=all_dataset_attrs.keys()
     )
     parser.add_argument("--preprocess", action="store_true")
+    parser.add_argument("--max_seq_len", type=str, default=None)
     parser.add_argument("--fix_batch_seq_len", action="store_true")
     # model
     parser.add_argument(
@@ -143,7 +144,7 @@ def settings():
         )
 
     # directory path to save dataset
-    args.data_dir = os.path.join(args.data_root_dir, args.dataset, args.model_type)
+    args.data_dir = os.path.join(args.data_root_dir, args.model_type, args.dataset)
 
     # model & tokenizer class
     model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
@@ -172,6 +173,10 @@ def settings():
     # fp16
     args.use_amp = not args.fp32
     args.dtype = torch.bfloat16 if args.bf16 else torch.float16
+
+    # max sequence length
+    if args.max_seq_len is None:
+        args.max_seq_len = bert_model.config.max_position_embeddings
 
     return args, bert_model, tokenizer, dataset_attrs
 

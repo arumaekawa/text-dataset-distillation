@@ -28,7 +28,7 @@ def run_full_data(
 ) -> None:
 
     # load train dataset
-    train_data_path = os.path.join(args.data_dir, "train_full_data")
+    train_data_path = os.path.join(args.data_dir, "full_data")
     train_data = get_full_dataset(
         dataset_attrs,
         tokenizer,
@@ -43,8 +43,9 @@ def run_full_data(
         train_data,
         batch_size=args.train_batch_size,
         data_type="train",
-        fix_batch_seq_len=args.fix_batch_seq_len,
         num_workers=args.num_workers,
+        max_seq_len=args.max_seq_len,
+        fix_batch_seq_len=args.fix_batch_seq_len,
     )
 
     # logging steps
@@ -106,9 +107,9 @@ def run_random_data(
 ) -> None:
 
     # load random dataset list
-    full_dataset_path = os.path.join(args.data_dir, "train_full_data")
+    full_dataset_path = os.path.join(args.data_dir, "full_data")
     random_dataset_path = os.path.join(
-        args.data_dir, f"train_random_data_{args.data_size}"
+        args.data_dir, f"random_data_size_{args.data_size}"
     )
     random_dataset_list = get_random_dataset(
         dataset_attrs,
@@ -131,8 +132,9 @@ def run_random_data(
             random_dataset,
             batch_size=max(len(random_dataset), args.train_batch_size),
             data_type="train",
-            fix_batch_seq_len=args.fix_batch_seq_len,
             num_workers=args.num_workers,
+            max_seq_len=args.max_seq_len,
+            fix_batch_seq_len=args.fix_batch_seq_len,
         )
         for random_dataset in random_dataset_list
     ]
@@ -202,7 +204,7 @@ def run_distilled_data(
 ) -> None:
 
     # load train dataset
-    train_data_path = os.path.join(args.data_dir, "train_full_data")
+    train_data_path = os.path.join(args.data_dir, "full_data")
     train_data = get_full_dataset(
         dataset_attrs,
         tokenizer,
@@ -217,8 +219,9 @@ def run_distilled_data(
         train_data,
         batch_size=args.train_batch_size,
         data_type="train",
-        fix_batch_seq_len=args.fix_batch_seq_len,
         num_workers=args.num_workers,
+        max_seq_len=args.max_seq_len,
+        fix_batch_seq_len=args.fix_batch_seq_len,
     )
 
     # logging steps
@@ -228,37 +231,16 @@ def run_distilled_data(
     # distilled data
     data_shape = (model.bert_config.max_position_embeddings, model.bert_config.dim)
 
+    distilled_data_dir = os.path.join(
+        args.data_dir,
+        f"distilled_random_init_size_{args.data_size}"
+        if args.random_init
+        else f"distilled_fix_init_size_{args.data_size}",
+    )
+    make_dir(distilled_data_dir)
+
     if args.pretrained_distilled_data:
-        # Test pretrained distilled data
-        logger.info(f"Test `{args.pretrained_distilled_data}`!!")
-
-        distilled_data = DistilledData.load_distilled_data(
-            args.pretrained_distilled_data
-        )
-        distilled_data.init_trainer(args, test_loader)
-
-        if not args.random_init and args.n_test_models != 1:
-            logger.warning("Test distilled data with known initial parameters only!!")
-            args.n_test_models = 1
-
-        all_acc = []
-        for i in range(args.n_test_models):
-            logger.info(f"Test distilled data on model[{i}]")
-
-            model.load_state_dict(torch.load(args.initial_model_path))
-            if args.random_init:
-                model.reset_additional_parameters()
-
-            # test distilled data
-            acc = test_distilled_data(
-                args, model, distilled_data, test_loader=test_loader
-            )
-            all_acc.append(acc)
-
-        logger.info(f"Result: {np.mean(all_acc)*100:.1f}±{np.std(all_acc)*100:.1f}")
-
-    else:
-        # Train Distilled Data
+        # Train distilled data
         logger.info("Train Distilled Data!!")
 
         # initialize distilled data
@@ -285,10 +267,37 @@ def run_distilled_data(
 
             # save distilled data
             distilled_data_path = os.path.join(
-                args.data_dir, f"distilled_data_{epoch+1}"
+                distilled_data_dir, f"distilled_data_{epoch+1}"
             )
             distilled_data.save_distilled_data(distilled_data_path)
             logger.info(f"Save distilled data in `{distilled_data_path}`")
+    else:
+        # Load pretrained distilled data
+        logger.info(f"Load `{args.pretrained_distilled_data}`!!")
+
+        distilled_data = DistilledData.load_distilled_data(
+            args.pretrained_distilled_data
+        )
+        distilled_data.init_trainer(args, test_loader)
+
+    # Test distilled data
+    if not args.random_init and args.n_test_models != 1:
+        logger.warning("Test distilled data with known initial parameters only!!")
+        args.n_test_models = 1
+
+    all_acc = []
+    for i in range(args.n_test_models):
+        logger.info(f"Test distilled data on model[{i}]")
+
+        model.load_state_dict(torch.load(args.initial_model_path))
+        if args.random_init:
+            model.reset_additional_parameters()
+
+        # test distilled data
+        acc = test_distilled_data(args, model, distilled_data, test_loader=test_loader)
+        all_acc.append(acc)
+
+    logger.info(f"Result: {np.mean(all_acc)*100:.1f}±{np.std(all_acc)*100:.1f}")
 
 
 def main():
@@ -311,7 +320,7 @@ def main():
     logger.info("Args = {}".format(str(args)))
 
     # load test dataset
-    test_data_path = os.path.join(args.data_dir, "test_dataset")
+    test_data_path = os.path.join(args.data_dir, "test_data")
     test_data = get_full_dataset(
         dataset_attrs,
         tokenizer,

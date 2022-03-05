@@ -15,12 +15,35 @@
         "name": "dbpedia_14",
         "text_key": "content",
         "label_key": "label",
-        "num_classes": 14
+        "num_classes": 14,
+        "label_names": [
+            "Company",
+            "EducationalInstitution",
+            "Artist",
+            "Athlete",
+            "OfficeHolder",
+            "MeanOfTransportation",
+            "Building",
+            "NaturalPlace",
+            "Village",
+            "Animal",
+            "Plant",
+            "Album",
+            "Film",
+            "WrittenWork"
+        ]
     },
     "yelp_full": {
         "name": "yelp_review_full",
         "text_key": "text",
         "label_key": "label",
-        "num_classes": 5
+        "num_classes": 5,
+        "label_names": [
+            "1 star",
+            "2 star",
+            "3 stars",
+            "4 stars",
+            "5 stars"
+        ]
     }
 }

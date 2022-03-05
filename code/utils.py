@@ -31,7 +31,7 @@ def get_full_dataset(
     dataset = load_dataset(dataset_attrs["name"], split=data_type)
 
     # rename columns
-    assert isinstance(dataset.features[dataset_attrs["label_keys"]], ClassLabel)
+    assert isinstance(dataset.features[dataset_attrs["label_key"]], ClassLabel)
     dataset = dataset.map(
         lambda ex: {
             "text": ex[dataset_attrs["text_key"]],
@@ -108,18 +108,27 @@ def get_random_dataset(
 
 
 def create_dataloader(
-    dataset, batch_size=1, data_type="train", num_workers=1, fix_batch_seq_len=False
+    dataset,
+    batch_size=1,
+    data_type="train",
+    num_workers=1,
+    max_seq_len=None,
+    fix_batch_seq_len=False,
 ):
     def collate_fn(data):
         # max length of sequences in batch
         if fix_batch_seq_len:
-            max_seq_len = len(data[0]["input_ids"])
+            batch_seq_len = len(data[0]["input_ids"])
         else:
-            max_seq_len = max([d["attention_mask"].sum().item() for d in data])
+            batch_seq_len = max([d["attention_mask"].sum().item() for d in data])
+        if max_seq_len is not None:
+            batch_seq_len = min(max_seq_len, batch_seq_len)
         # input_ids
-        input_ids = torch.stack([d["input_ids"][:max_seq_len] for d in data])
+        input_ids = torch.stack([d["input_ids"][:batch_seq_len] for d in data])
         # attention mask
-        attention_mask = torch.stack([d["attention_mask"][:max_seq_len] for d in data])
+        attention_mask = torch.stack(
+            [d["attention_mask"][:batch_seq_len] for d in data]
+        )
         # labels
         labels = torch.stack([d["labels"] for d in data])
         return input_ids, attention_mask, labels
