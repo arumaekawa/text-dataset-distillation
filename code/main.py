@@ -233,13 +233,13 @@ def run_distilled_data(
 
     distilled_data_dir = os.path.join(
         args.data_dir,
-        f"distilled_random_init_size_{args.data_size}"
+        f"distilled_random_init_{args.label_type}_size_{args.data_size}"
         if args.random_init
-        else f"distilled_fix_init_size_{args.data_size}",
+        else f"distilled_fix_init_{args.label_type}_size_{args.data_size}",
     )
     make_dir(distilled_data_dir)
 
-    if args.pretrained_distilled_data:
+    if not args.pretrained_distilled_data:
         # Train distilled data
         logger.info("Train Distilled Data!!")
 
