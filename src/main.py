@@ -231,12 +231,8 @@ def run_distilled_data(
     # distilled data
     data_shape = (model.bert_config.max_position_embeddings, model.bert_config.dim)
 
-    distilled_data_dir = os.path.join(
-        args.data_dir,
-        f"distilled_random_init_{args.label_type}_size_{args.data_size}"
-        if args.random_init
-        else f"distilled_fix_init_{args.label_type}_size_{args.data_size}",
-    )
+    distilled_data_dir = os.path.join(args.data_dir, args.dir_name)
+
     make_dir(distilled_data_dir)
 
     if not args.pretrained_distilled_data:
@@ -310,10 +306,8 @@ def main():
     make_dir(args.data_dir)
 
     # initialize logger
-    if args.pretrained_distilled_data:
-        init_logging(os.path.join(args.model_dir, "log_test.txt"))
-    else:
-        init_logging(os.path.join(args.model_dir, "log_train.txt"))
+
+    init_logging(os.path.join(args.model_dir, "log.txt"))
 
     if args.comment:
         logger.info(f"Comment: {args.comment}")

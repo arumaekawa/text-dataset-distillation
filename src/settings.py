@@ -45,7 +45,7 @@ def parse_args():
         "--dataset", type=str, default="ag_news", choices=all_dataset_attrs.keys()
     )
     parser.add_argument("--preprocess", action="store_true")
-    parser.add_argument("--max_seq_len", type=str, default=None)
+    parser.add_argument("--max_seq_len", type=int, default=None)
     parser.add_argument("--fix_batch_seq_len", action="store_true")
     # model
     parser.add_argument(
@@ -103,27 +103,31 @@ def set_random_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-def get_model_dir_path(args):
-    model_dir_name = args.mode
+def get_dir_name(args):
+    dir_name = args.mode
 
     if args.mode != "full":
-        model_dir_name = f"{model_dir_name}_{args.data_size}"
+        dir_name = f"{dir_name}_{args.data_size}"
         if args.mode == "distill":
             if args.random_init:
-                model_dir_name = f"{model_dir_name}_random_init"
+                dir_name = f"{dir_name}_random_init"
             else:
-                model_dir_name = f"{model_dir_name}_fix_init"
-            model_dir_name = f"{model_dir_name}_{args.label_type}"
+                dir_name = f"{dir_name}_fix_init"
+            dir_name = f"{dir_name}_{args.label_type}"
 
     if args.comment:
-        model_dir_name = f"{model_dir_name}_{args.comment.replace(' ', '_')}"
+        dir_name = f"{dir_name}_{args.comment.replace(' ', '_')}"
 
+    return dir_name
+
+
+def get_model_dir_path(args):
     return os.path.join(
         args.model_root_dir,
         args.model_type,
         args.dataset,
         args.mode,
-        model_dir_name,
+        args.dir_name,
     )
 
 
@@ -135,6 +139,7 @@ def settings():
     set_random_seed(args.seed)
 
     # directory path to save model
+    args.dir_name = get_dir_name(args)
     args.model_dir = get_model_dir_path(args)
 
     # initail model parameters
