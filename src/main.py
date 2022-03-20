@@ -229,7 +229,25 @@ def run_distilled_data(
         args.logging_steps = max(len(train_loader) // 20, 1)
 
     # distilled data
-    data_shape = (model.bert_config.max_position_embeddings, model.bert_config.dim)
+    input_embeds_shape = (
+        model.bert_config.max_position_embeddings,
+        model.bert_config.dim,
+    )
+    if args.attention_label_type == "all":
+        attention_label_shape = (
+            model.bert_config.n_layers,
+            model.bert_config.n_heads,
+            model.bert_config.max_position_embeddings,
+            model.bert_config.max_position_embeddings,
+        )
+    elif args.attention_label_type == "cls":
+        attention_label_shape = (
+            model.bert_config.n_layers,
+            model.bert_config.n_heads,
+            model.bert_config.max_position_embeddings,
+        )
+    else:
+        attention_label_shape = None
 
     distilled_data_dir = os.path.join(args.data_dir, args.dir_name)
 
@@ -241,10 +259,12 @@ def run_distilled_data(
 
         # initialize distilled data
         distilled_data = DistilledData(
-            data_shape,
+            input_embeds_shape,
             dataset_attrs["num_classes"],
             data_size=args.data_size,
             label_type=args.label_type,
+            attention_label_type=args.attention_label_type,
+            attention_label_shape=attention_label_shape,
         )
 
         # initialize distilled data trainer

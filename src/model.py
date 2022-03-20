@@ -41,12 +41,14 @@ class BertClassifier(nn.Module):
         inputs_embeds=None,
         attention_mask=None,
         labels=None,
+        output_attentions=False,
     ):
         # encode input sequences with bert model
         bert_outputs = self.bert_model(
             input_ids=input_ids,
             inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
+            output_attentions=output_attentions,
         )
 
         # hidden state of [CLS] token
@@ -78,6 +80,7 @@ class BertClassifier(nn.Module):
         attention_mask=None,
         labels=None,
         weights=None,
+        output_attentions=False,
     ):
         assert weights is not None
         module_name_list = ["bert_model", "classifier"]
@@ -94,6 +97,7 @@ class BertClassifier(nn.Module):
             inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
             weights=weights_dict["bert_model"],
+            output_attentions=output_attentions,
         )
 
         # hidden state of [CLS] token

@@ -18,20 +18,45 @@ logger = logging.getLogger(__name__)
 
 
 class DistilledData:
-    def __init__(self, data_shape, num_classes, data_size=1, label_type="hard"):
+    def __init__(
+        self,
+        input_embeds_shape,
+        num_classes,
+        data_size=1,
+        label_type="hard",
+        attention_label_type="none",
+        attention_label_shape=None,
+    ):
         # config
         self.num_classes = num_classes
         self.data_size_per_class = data_size
         self.label_type = label_type
+        self.attention_label_type = attention_label_type
 
-        # initialize inputs_embeds
-        self.inputs_embeds = torch.randn(num_classes * data_size, *data_shape)
-        # initialize labels
+        self.init_distilled_data(
+            input_embeds_shape, attention_label_shape=attention_label_shape
+        )
+
+    def init_distilled_data(
+        self,
+        input_embeds_shape,
+        attention_label_shape=None,
+    ):
+        # initialize inputs_embeds (M * S * E)
+        self.inputs_embeds = torch.randn(
+            self.num_classes * self.data_size_per_class, *input_embeds_shape
+        )
+        # initialize labels (M * C)
         label_classes = torch.tensor(
-            [[c] * data_size for c in range(num_classes)]
+            [[c] * self.data_size_per_class for c in range(self.num_classes)]
         ).view(-1)
-        self._labels = torch.eye(num_classes)[label_classes]
-
+        self._labels = torch.eye(self.num_classes)[label_classes]
+        # initialize attention labels (M * L * H * S * S)
+        if self.attention_label_type != "none":
+            assert attention_label_shape is not None
+            self._attention_labels = torch.randn(
+                self.num_classes * self.data_size_per_class, *attention_label_shape
+            )
         # initialize learning rate and decay factor
         self.model_lr, self.step_lr_gamma = None, None
 
@@ -41,6 +66,13 @@ class DistilledData:
             return F.softmax(self._labels, dim=-1)
         else:
             return self._labels
+
+    @property
+    def attention_labels(self):
+        if self.attention_label_type:
+            return F.softmax(self._attention_labels, dim=-1)
+        else:
+            return None
 
     def init_trainer(self, args, train_loader):
         # training settings
@@ -56,6 +88,7 @@ class DistilledData:
         self.device = args.device
         self.use_amp = args.use_amp
         self.dtype = args.dtype
+        self.attention_kl_lambda = args.attention_kl_lambda
 
         if self.model_lr is None:
             self.model_lr = torch.tensor(args.distill_model_lr)
@@ -65,6 +98,8 @@ class DistilledData:
         # set on device
         self.inputs_embeds = self.inputs_embeds.to(self.device)
         self._labels = self._labels.to(self.device)
+        if self.attention_label_type != "none":
+            self._attention_labels = self._attention_labels.to(self.device)
         self.model_lr = self.model_lr.to(self.device)
         self.step_lr_gamma = self.step_lr_gamma.to(self.device)
 
@@ -76,6 +111,8 @@ class DistilledData:
         self.optimize_param_list = [self.inputs_embeds]
         if self.label_type != "hard":
             self.optimize_param_list += [self._labels]
+        if self.attention_label_type != "none":
+            self.optimize_param_list += [self._attention_labels]
         if self.optimize_lr:
             self.optimize_param_list += [self.model_lr, self.step_lr_gamma]
         for param in self.optimize_param_list:
@@ -129,11 +166,22 @@ class DistilledData:
                 loss = 0
                 for inner_step in range(self.n_inner_steps):
                     # forward
-                    d_loss = model.forward_with_params(
+                    d_losses, _, bert_outputs = model.forward_with_params(
                         inputs_embeds=self.inputs_embeds,
                         labels=self.labels,
                         weights=weights,
-                    )[0].mean()
+                        output_attentions=True,
+                    )
+                    d_loss = d_losses.mean()
+                    if self.attention_label_type != "none":
+                        attn_weights = torch.stack(bert_outputs["attentions"], dim=1)
+                        if self.attention_label_type == "cls":
+                            attn_weights = attn_weights[..., 0, :]
+                        assert attn_weights.shape == self.attention_labels.shape
+                        d_attn_kl = F.kl_div(
+                            torch.log(attn_weights + 1e-12), self.attention_labels
+                        )
+                        d_loss = d_loss + d_attn_kl * self.attention_kl_lambda
                     d_loss = d_loss * self.model_lr * (self.step_lr_gamma**inner_step)
 
                     # backward
@@ -215,25 +263,47 @@ class DistilledData:
         start_time = time.time()
         for inner_step in range(self.n_inner_steps):
             # forward
-            losses = model(inputs_embeds=self.inputs_embeds, labels=self.labels)[0]
-            loss = losses.mean() * self.model_lr * (self.step_lr_gamma**inner_step)
+            losses, _, bert_outputs = model(
+                inputs_embeds=self.inputs_embeds,
+                labels=self.labels,
+                output_attentions=True,
+            )
+            loss = losses.mean()
+            if self.attention_label_type != "none":
+                attn_weights = torch.stack(bert_outputs["attentions"], dim=1)
+                if self.attention_label_type == "cls":
+                    attn_weights = attn_weights[..., 0, :]
+                assert attn_weights.shape == self.attention_labels.shape
+                attn_kl = F.kl_div(
+                    torch.log(attn_weights + 1e-12), self.attention_labels
+                )
+                loss = loss + attn_kl * self.attention_kl_lambda
+            loss = loss * self.model_lr * (self.step_lr_gamma**inner_step)
             # backward
             model_opt.zero_grad()
             loss.backward()
             model_opt.step()
-        logger.info(f"Time for model traning : {time.time() - start_time:.2f}s")
+        end_time = time.time() - start_time
+        logger.info(f"Time for model traning : {end_time:.2f}s")
 
     @property
     def data_dict(self):
         return {
             "config": {
-                "data_shape": self.inputs_embeds.shape[1:],
+                "input_embeds_shape": self.inputs_embeds.shape[1:],
                 "num_classes": self.num_classes,
                 "data_size": self.data_size_per_class,
                 "label_type": self.label_type,
+                "attention_label_type": self.attention_label_type,
+                "attention_label_shape": self._attention_labels.shape[1:]
+                if self.attention_label_type != "none"
+                else None,
             },
             "inputs_embeds": self.inputs_embeds.cpu().data,
             "labels": self._labels.cpu().data,
+            "attention_labels": self._attention_labels.cpu().data
+            if self.attention_label_type != "none"
+            else None,
             "lr": self.model_lr.cpu().data,
             "gamma": self.step_lr_gamma.cpu().data,
         }
@@ -258,6 +328,7 @@ class DistilledData:
         distilled_data._labels = data_dict["labels"]
         distilled_data.model_lr = data_dict["lr"]
         distilled_data.step_lr_gamma = data_dict["gamma"]
+        distilled_data._attention_labels = data_dict["attention_labels"]
 
         return distilled_data
 

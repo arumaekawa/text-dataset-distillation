@@ -66,6 +66,13 @@ def parse_args():
         default="hard",
         choices=["hard", "soft", "unrestricted"],
     )
+    parser.add_argument(
+        "--attention_label_type",
+        type=str,
+        default="none",
+        choices=["none", "all", "cls"],
+    )
+    parser.add_argument("--attention_kl_lambda", type=float, default=1.0)
     parser.add_argument("--accum_loss", action="store_true")
     parser.add_argument("--random_init", action="store_true")
     parser.add_argument("--optimize_lr", action="store_true")
