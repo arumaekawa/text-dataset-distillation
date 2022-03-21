@@ -284,7 +284,7 @@ $L$: the number of layers, $H$: the number of heads, $S$: sequence length
 
 # Implementation
 
-GitHub:
+GitHub: https://github.com/arumaekawa/text-dataset-distillation
 
 1. **How to calculate meta gradient**
 1. **Training with Automatic Mixed Precision**
