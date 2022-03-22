@@ -54,11 +54,11 @@ _Note: I chose DistilBERT only because it is small, “Distil” in “DistilBER
 
 ## Results of Distilled Data
 
-| Dataset                                                 | #Train samples | #GD steps | Accuracy(%) |
-| :------------------------------------------------------ | -------------: | --------: | ----------: |
-| Full data                                               |    $120{,}000$ | $7{,}500$ |      $94.7$ |
-| Distilled data                                          |            $4$ |       $1$ |  $86.3±3.4$ |
-| Distilled data +SL$_{\rm unrestricted}$ +AL$_{\rm CLS}$ |            $4$ |       $1$ |  $90.7±0.2$ |
+| Dataset                                                     | #Train samples |   #GD steps |         Accuracy(%) |
+| :---------------------------------------------------------- | -------------: | ----------: | ------------------: |
+| Full data                                                   |    $120{,}000$ |   $7{,}500$ |              $94.7$ |
+| **Distilled data**                                          |    $\textbf 4$ | $\textbf 1$ | $\textbf{86.3±3.4}$ |
+| **Distilled data +SL$_{\rm unrestricted}$ +AL$_{\rm CLS}$** |    $\textbf 4$ | $\textbf 1$ | $\textbf{90.7±0.2}$ |
 
 # Introduction
 
@@ -267,18 +267,18 @@ $L$: the number of layers, $H$: the number of heads, $S$: sequence length
 | **Distilled data +SL$_{\rm unrestricted}$ +AL$_{\rm CLS}$** |            $4$ |       $1$ | $\textbf{90.7±0.2}$ |
 | **Distilled data +SL$_{\rm unrestricted}$ +AL$_{\rm ALL}$** |            $4$ |       $1$ | $\textbf{90.3±0.4}$ |
 
-# Experiment for multiple inner steps
+# Experiment for multiple inner steps :weary:
 
 **Results** (The number of inner steps : $T=1$ -> $T=3$)
 
-| Dataset                                 | #Train samples |   #GD steps | Random init. (n=100) |
-| --------------------------------------- | -------------: | ----------: | -------------------: |
-| Distilled data                          |            $4$ |         $1$ |           $86.3±3.4$ |
-| Distilled data                          |            $4$ | $\textbf 3$ |  $\textbf{84.8±3.1}$ |
-| Distilled data +SL                      |            $4$ |         $1$ |           $87.1±1.4$ |
-| Distilled data +SL                      |            $4$ | $\textbf 3$ |  $\textbf{84.9±2.7}$ |
-| Distilled data +SL$_{\rm unrestricted}$ |            $4$ |         $1$ |           $88.0±1.0$ |
-| Distilled data +SL$_{\rm unrestricted}$ |            $4$ | $\textbf 3$ |  $\textbf{86.9±1.1}$ |
+| Dataset                                 | #Train samples |   #GD steps |         Accuracy(%) |
+| --------------------------------------- | -------------: | ----------: | ------------------: |
+| Distilled data                          |            $4$ |         $1$ |          $86.3±3.4$ |
+| Distilled data                          |            $4$ | $\textbf 3$ | $\textbf{84.8±3.1}$ |
+| Distilled data +SL                      |            $4$ |         $1$ |          $87.1±1.4$ |
+| Distilled data +SL                      |            $4$ | $\textbf 3$ | $\textbf{84.9±2.7}$ |
+| Distilled data +SL$_{\rm unrestricted}$ |            $4$ |         $1$ |          $88.0±1.0$ |
+| Distilled data +SL$_{\rm unrestricted}$ |            $4$ | $\textbf 3$ | $\textbf{86.9±1.1}$ |
 
 # Implementation
 
@@ -289,7 +289,48 @@ GitHub: https://github.com/arumaekawa/text-dataset-distillation
 1. **How to calculate meta gradient**
 1. **Training with Automatic Mixed Precision**
 1. **Use \`logging\` and \`tqdm\` at the same time**
-1. **pdb Debugger for python**
+1. **pdb – Debugger for python**
+
+# 1. How to calculate meta gradient
+
+I refer to implementation of MAML
+
+- torch.autograd.grad(create_graph=True)
+- nn.Linear() -> F.linear()
+
+Note: This is not best practice. I'm modifying the implementation now.
+
+# 2. Training with Automatic Mixed Precision
+
+pytorch module: `torch.cuda.amp`
+
+- `amp.autocast()`
+- `amp.GradScaler()`
+
+### Docs
+
+- https://pytorch.org/docs/stable/amp.html
+- https://pytorch.org/docs/stable/notes/amp_examples.html
+
+# 3. Use \`logging\` and \`tqdm\` at the same time
+
+- tqdm: Visualize training progress
+- You can use `tqdm.write()` instead of `print()` but this does not work when using logging.
+
+See source code (`src/settings`)
+
+# 4. pdb – Debugger for Python
+
+`pdb.set_trace()`, (Python 3.7\~ : `breakpoint()`)
+
+| commands            | actions                                      |
+| ------------------- | -------------------------------------------- |
+| `p(rint)`           | print variable                               |
+| `a(rgs)`            | print arguments of the current function      |
+| `n(ext)`, `s(tep)`  | execute the current line                     |
+| `r(eturn)`          | execute until the current function returns   |
+| `l(ist)`            | show source code around the current line     |
+| any python commands | you can use any python commands like ipython |
 
 # References
 
