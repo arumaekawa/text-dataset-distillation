@@ -21,7 +21,7 @@ Note: All command execute in `src` directory
 test example of distilled data (created by my experiment)
 
 ```
-./examples/run_distilled_data.sh --random_init --label_type hard --n_inner_steps 1 --pretrained_distilled_data ./distilled_data_examples/distilbert_ag_news_1_random_init_hard_inner_step_1
+./examples/run_distilled_data.sh --random_init --label_type hard --n_inner_steps 1 --pretrained_distilled_data ../distilled_data_examples/distilbert_ag_news_1_random_init_hard_inner_step_1
 ```
 
 ## Options
